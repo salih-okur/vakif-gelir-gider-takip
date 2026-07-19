@@ -1,8 +1,18 @@
 "use client";
 
-import { LogOut, ShieldAlert } from "lucide-react";
+import { AlertTriangle, LogOut, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { useAuth } from "../_lib/AuthContext";
+
+function useIsInAppBrowser(): boolean {
+  const [isInApp] = useState(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return /FBAN|FBAV|Instagram|WhatsApp|Line\/|MicroMessenger|Twitter/i.test(ua);
+  });
+  return isInApp;
+}
 
 function GoogleIcon() {
   return (
@@ -29,6 +39,7 @@ function GoogleIcon() {
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const { user, isLoading, isAllowed, error, signInWithGoogle, signOut } = useAuth();
+  const isInAppBrowser = useIsInAppBrowser();
 
   if (isLoading) {
     return (
@@ -58,6 +69,17 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
           {error && (
             <p className="mt-4 text-sm text-rose-600 dark:text-rose-400">{error}</p>
+          )}
+
+          {!user && isInAppBrowser && (
+            <div className="mt-5 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-left text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+              <span>
+                Google girişi bu uygulama içi tarayıcıda çalışmayabilir. Sağ üstteki menüden{" "}
+                <strong>&quot;Tarayıcıda Aç&quot;</strong> seçeneğini kullanıp Safari veya Chrome
+                üzerinden devam edin.
+              </span>
+            </div>
           )}
 
           <button

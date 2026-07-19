@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
@@ -20,6 +22,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function isInAppBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /FBAN|FBAV|Instagram|WhatsApp|Line\/|MicroMessenger|Twitter/i.test(ua);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -33,6 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!result) return;
+        const email = result.user.email?.toLowerCase();
+        if (!email || !ALLOWED_EMAILS.includes(email)) {
+          firebaseSignOut(auth);
+          setError("Bu hesabın erişim izni yok. Yetkili bir hesapla giriş yapın.");
+        }
+      })
+      .catch(() => {
+        setError("Giriş yapılamadı. Lütfen tekrar deneyin.");
+      });
+  }, []);
+
   const isAllowed = Boolean(
     user?.email && ALLOWED_EMAILS.includes(user.email.toLowerCase())
   );
@@ -40,6 +63,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     setError(null);
     try {
+      if (isInAppBrowser()) {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      }
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
       if (!email || !ALLOWED_EMAILS.includes(email)) {
