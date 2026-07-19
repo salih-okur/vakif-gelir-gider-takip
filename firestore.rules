@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAllowed() {
+      return request.auth != null && request.auth.token.email in [
+        "salchadev@gmail.com",
+        "gdhuskudarmalikomisyon@gmail.com"
+      ];
+    }
+
+    match /{document=**} {
+      allow read, write: if isAllowed();
+    }
+  }
+}
