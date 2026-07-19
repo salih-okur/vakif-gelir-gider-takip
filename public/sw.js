@@ -1,4 +1,4 @@
-const CACHE_NAME = "vakif-takip-v1";
+const CACHE_NAME = "vakif-takip-v2";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -17,6 +17,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   event.respondWith(
     fetch(event.request)
@@ -25,6 +26,9 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        return cached ?? Response.error();
+      })
   );
 });
