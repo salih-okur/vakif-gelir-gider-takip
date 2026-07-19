@@ -5,7 +5,12 @@ import { useMemo, useState } from "react";
 import Header from "../_components/Header";
 import TransactionDetailModal from "../_components/TransactionDetailModal";
 import { useAppData } from "../_lib/AppDataContext";
-import { formatCurrencyValue, formatDate, getPartyName } from "../_lib/calculations";
+import {
+  compareByRecentlyAdded,
+  formatCurrencyValue,
+  formatDate,
+  getPartyName,
+} from "../_lib/calculations";
 import type { IncomeCategory, Transaction, TransactionType } from "../_lib/types";
 
 type TypeFilter = "hepsi" | TransactionType;
@@ -40,7 +45,7 @@ function AmountBadge({ tx }: { tx: Transaction }) {
 }
 
 export default function IslemlerPage() {
-  const { transactions, residents, donors } = useAppData();
+  const { transactions, residents } = useAppData();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("hepsi");
   const [incomeCategoryFilter, setIncomeCategoryFilter] = useState<IncomeCategoryFilter>("hepsi");
   const [searchQuery, setSearchQuery] = useState("");
@@ -64,16 +69,14 @@ export default function IslemlerPage() {
       )
       .filter((tx) => {
         if (query === "") return true;
-        const party = getPartyName(tx, residents, donors).toLocaleLowerCase("tr-TR");
+        const party = getPartyName(tx, residents).toLocaleLowerCase("tr-TR");
         return (
           tx.description.toLocaleLowerCase("tr-TR").includes(query) ||
           party.includes(query)
         );
       })
-      .sort(
-        (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-      );
-  }, [transactions, typeFilter, incomeCategoryFilter, searchQuery, residents, donors]);
+      .sort(compareByRecentlyAdded);
+  }, [transactions, typeFilter, incomeCategoryFilter, searchQuery, residents]);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
@@ -169,7 +172,7 @@ export default function IslemlerPage() {
                             {tx.description}
                           </p>
                           <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-                            {getPartyName(tx, residents, donors)}
+                            {getPartyName(tx, residents)}
                           </p>
                         </div>
                         <AmountBadge tx={tx} />
@@ -216,7 +219,7 @@ export default function IslemlerPage() {
                           {tx.description}
                         </td>
                         <td className="px-6 py-3.5 text-zinc-500 dark:text-zinc-400">
-                          {getPartyName(tx, residents, donors)}
+                          {getPartyName(tx, residents)}
                         </td>
                         <td className="px-6 py-3.5">
                           <span className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">

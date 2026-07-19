@@ -1,6 +1,7 @@
 "use client";
 
-import { Banknote, Landmark, PiggyBank, Wallet } from "lucide-react";
+import { Banknote, HeartHandshake, Landmark, Wallet } from "lucide-react";
+import { useState } from "react";
 import { useAppData } from "../_lib/AppDataContext";
 import {
   formatCurrency,
@@ -12,20 +13,23 @@ import {
 } from "../_lib/calculations";
 import { useExchangeRates } from "../_lib/useExchangeRates";
 import type { TimeFilter, Transaction } from "../_lib/types";
+import TimeFilterTabs from "./TimeFilterTabs";
 
 interface SummaryCardsProps {
   transactions: Transaction[];
-  filter: TimeFilter;
 }
 
-export default function SummaryCards({ transactions, filter }: SummaryCardsProps) {
+export default function SummaryCards({ transactions }: SummaryCardsProps) {
   const { residents } = useAppData();
   const { toTRY } = useExchangeRates();
-  const pledged = getPledgedDuesTotal(residents, filter);
-  const received = getReceivedDuesTotal(transactions, filter);
+  const [duesFilter, setDuesFilter] = useState<TimeFilter>("1ay");
+  const [donationsFilter, setDonationsFilter] = useState<TimeFilter>("1ay");
+
+  const pledged = getPledgedDuesTotal(residents, duesFilter);
+  const received = getReceivedDuesTotal(transactions, duesFilter);
   const duesRatio = pledged > 0 ? Math.min(100, Math.round((received / pledged) * 100)) : 0;
 
-  const donations = getDonationsTotal(transactions, filter);
+  const donations = getDonationsTotal(transactions, donationsFilter);
   const cashBox = getCashBoxTotals(transactions, toTRY);
 
   return (
@@ -35,9 +39,12 @@ export default function SummaryCards({ transactions, filter }: SummaryCardsProps
           <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
             Taahhüt Edilen vs Gelen Aidat
           </span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
             <Wallet size={18} />
           </span>
+        </div>
+        <div className="mt-3">
+          <TimeFilterTabs value={duesFilter} onChange={setDuesFilter} size="compact" />
         </div>
         <div className="mt-3 flex items-baseline gap-2">
           <span className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -59,9 +66,12 @@ export default function SummaryCards({ transactions, filter }: SummaryCardsProps
           <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
             Toplam Bağış
           </span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
-            <PiggyBank size={18} />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+            <HeartHandshake size={18} />
           </span>
+        </div>
+        <div className="mt-3">
+          <TimeFilterTabs value={donationsFilter} onChange={setDonationsFilter} size="compact" />
         </div>
         <div className="mt-3">
           <span className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">

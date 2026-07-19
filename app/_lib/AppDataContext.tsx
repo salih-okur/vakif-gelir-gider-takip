@@ -8,17 +8,16 @@ import {
   onSnapshot,
   orderBy,
   query,
-  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useToast } from "../_components/Toast";
 import { getTodayString } from "./calculations";
 import { db } from "./firebase";
-import type { Donor, Resident, Transaction } from "./types";
+import type { Resident, Transaction } from "./types";
 
 interface AppDataContextValue {
   residents: Resident[];
-  donors: Donor[];
   transactions: Transaction[];
   isLoading: boolean;
   addTransaction: (tx: Omit<Transaction, "id">) => Promise<void>;
@@ -29,7 +28,6 @@ interface AppDataContextValue {
     updates: Omit<Resident, "id" | "createdAt" | "dueHistory">
   ) => Promise<void>;
   removeResident: (id: string) => Promise<void>;
-  findOrCreateDonorByName: (name: string) => Promise<string>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -41,12 +39,11 @@ function stripUndefined<T extends object>(obj: T): T {
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
+  const { showSuccess, showError } = useToast();
   const [residents, setResidents] = useState<Resident[]>([]);
-  const [donors, setDonors] = useState<Donor[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadedFlags, setLoadedFlags] = useState({
     residents: false,
-    donors: false,
     transactions: false,
   });
 
@@ -56,11 +53,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Resident)
       );
       setLoadedFlags((prev) => ({ ...prev, residents: true }));
-    });
-
-    const unsubDonors = onSnapshot(collection(db, "donors"), (snapshot) => {
-      setDonors(snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Donor));
-      setLoadedFlags((prev) => ({ ...prev, donors: true }));
     });
 
     const unsubTransactions = onSnapshot(
@@ -75,72 +67,88 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     return () => {
       unsubResidents();
-      unsubDonors();
       unsubTransactions();
     };
   }, []);
 
-  const isLoading = !loadedFlags.residents || !loadedFlags.donors || !loadedFlags.transactions;
+  const isLoading = !loadedFlags.residents || !loadedFlags.transactions;
 
   async function addTransaction(tx: Omit<Transaction, "id">) {
-    await addDoc(collection(db, "transactions"), stripUndefined(tx));
+    try {
+      await addDoc(collection(db, "transactions"), stripUndefined(tx));
+      showSuccess(tx.type === "gelir" ? "Gelir başarıyla kaydedildi." : "Gider başarıyla kaydedildi.");
+    } catch {
+      showError("İşlem kaydedilirken bir hata oluştu.");
+      throw new Error("addTransaction failed");
+    }
   }
 
   async function removeTransaction(id: string) {
-    await deleteDoc(doc(db, "transactions", id));
+    try {
+      await deleteDoc(doc(db, "transactions", id));
+      showSuccess("İşlem silindi.");
+    } catch {
+      showError("İşlem silinirken bir hata oluştu.");
+      throw new Error("removeTransaction failed");
+    }
   }
 
   async function addResident(resident: Omit<Resident, "id" | "createdAt" | "dueHistory">) {
-    const createdAt = getTodayString();
-    await addDoc(
-      collection(db, "residents"),
-      stripUndefined({
-        ...resident,
-        createdAt,
-        dueHistory: [{ from: createdAt, amount: resident.monthlyDue }],
-      })
-    );
+    try {
+      const createdAt = getTodayString();
+      await addDoc(
+        collection(db, "residents"),
+        stripUndefined({
+          ...resident,
+          createdAt,
+          dueHistory: [{ from: createdAt, amount: resident.monthlyDue }],
+        })
+      );
+      showSuccess("Kişi başarıyla eklendi.");
+    } catch {
+      showError("Kişi eklenirken bir hata oluştu.");
+      throw new Error("addResident failed");
+    }
   }
 
   async function updateResident(
     id: string,
     updates: Omit<Resident, "id" | "createdAt" | "dueHistory">
   ) {
-    const existing = residents.find((r) => r.id === id);
-    const today = getTodayString();
+    try {
+      const existing = residents.find((r) => r.id === id);
+      const today = getTodayString();
 
-    let dueHistory = existing?.dueHistory ?? [];
-    if (existing && existing.monthlyDue !== updates.monthlyDue) {
-      const withoutToday = dueHistory.filter((entry) => entry.from !== today);
-      dueHistory = [...withoutToday, { from: today, amount: updates.monthlyDue }].sort((a, b) =>
-        a.from.localeCompare(b.from)
-      );
+      let dueHistory = existing?.dueHistory ?? [];
+      if (existing && existing.monthlyDue !== updates.monthlyDue) {
+        const withoutToday = dueHistory.filter((entry) => entry.from !== today);
+        dueHistory = [...withoutToday, { from: today, amount: updates.monthlyDue }].sort((a, b) =>
+          a.from.localeCompare(b.from)
+        );
+      }
+
+      await updateDoc(doc(db, "residents", id), stripUndefined({ ...updates, dueHistory }));
+      showSuccess("Kişi bilgileri güncellendi.");
+    } catch {
+      showError("Kişi güncellenirken bir hata oluştu.");
+      throw new Error("updateResident failed");
     }
-
-    await updateDoc(doc(db, "residents", id), stripUndefined({ ...updates, dueHistory }));
   }
 
   async function removeResident(id: string) {
-    await deleteDoc(doc(db, "residents", id));
-  }
-
-  async function findOrCreateDonorByName(name: string): Promise<string> {
-    const trimmed = name.trim();
-    const existing = donors.find(
-      (d) => d.name.toLocaleLowerCase("tr-TR") === trimmed.toLocaleLowerCase("tr-TR")
-    );
-    if (existing) return existing.id;
-
-    const newDonorRef = doc(collection(db, "donors"));
-    await setDoc(newDonorRef, { name: trimmed });
-    return newDonorRef.id;
+    try {
+      await deleteDoc(doc(db, "residents", id));
+      showSuccess("Kişi silindi.");
+    } catch {
+      showError("Kişi silinirken bir hata oluştu.");
+      throw new Error("removeResident failed");
+    }
   }
 
   return (
     <AppDataContext.Provider
       value={{
         residents,
-        donors,
         transactions,
         isLoading,
         addTransaction,
@@ -148,7 +156,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addResident,
         updateResident,
         removeResident,
-        findOrCreateDonorByName,
       }}
     >
       {children}

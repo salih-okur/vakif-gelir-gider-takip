@@ -1,38 +1,72 @@
 "use client";
 
-import { ChevronRight, HeartHandshake, Search } from "lucide-react";
-import Link from "next/link";
+import { Banknote, HeartHandshake, Landmark, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import Header from "../_components/Header";
+import TimeFilterTabs from "../_components/TimeFilterTabs";
+import TransactionDetailModal from "../_components/TransactionDetailModal";
 import { useAppData } from "../_lib/AppDataContext";
-import { formatCurrency, getDonorsWithTotals } from "../_lib/calculations";
+import {
+  compareByRecentlyAdded,
+  filterTransactionsByTime,
+  formatCurrency,
+  formatDate,
+  getDonationsTotal,
+  getPartyName,
+} from "../_lib/calculations";
+import type { Transaction, TimeFilter } from "../_lib/types";
 
 export default function BagisPage() {
-  const { donors, transactions } = useAppData();
+  const { transactions, residents } = useAppData();
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("1ay");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  const donorsWithTotals = useMemo(
-    () => getDonorsWithTotals(donors, transactions),
-    [donors, transactions]
+  const donations = useMemo(
+    () =>
+      filterTransactionsByTime(transactions, timeFilter)
+        .filter((tx) => tx.type === "gelir" && tx.incomeCategory === "bagis")
+        .sort(compareByRecentlyAdded),
+    [transactions, timeFilter]
   );
 
-  const filteredDonors = useMemo(() => {
+  const totalDonations = useMemo(
+    () => getDonationsTotal(transactions, timeFilter),
+    [transactions, timeFilter]
+  );
+
+  const filteredDonations = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase("tr-TR");
-    if (query === "") return donorsWithTotals;
-    return donorsWithTotals.filter((d) => d.name.toLocaleLowerCase("tr-TR").includes(query));
-  }, [donorsWithTotals, searchQuery]);
+    if (query === "") return donations;
+    return donations.filter((tx) =>
+      getPartyName(tx, residents).toLocaleLowerCase("tr-TR").includes(query)
+    );
+  }, [donations, searchQuery, residents]);
 
   return (
     <div className="min-h-full bg-zinc-50 dark:bg-zinc-950">
       <Header />
 
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        <div>
-          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-            Bağış Yönetimi
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Kayıtlı bağışçılar ve toplam bağış tutarları
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+              Bağış Yönetimi
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Tüm bağış işlemlerinin listesi
+            </p>
+          </div>
+
+          <TimeFilterTabs value={timeFilter} onChange={setTimeFilter} />
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            Toplam Bağış
+          </span>
+          <p className="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+            {formatCurrency(totalDonations)}
           </p>
         </div>
 
@@ -50,52 +84,58 @@ export default function BagisPage() {
           />
         </div>
 
-        {filteredDonors.length === 0 ? (
+        {filteredDonations.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-10 text-center text-sm text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">
-            {donors.length === 0
-              ? "Henüz kayıtlı bağışçı bulunmuyor."
-              : "Aramanızla eşleşen bağışçı bulunamadı."}
+            {donations.length === 0
+              ? "Seçili zaman aralığında kayıtlı bağış bulunmuyor."
+              : "Aramanızla eşleşen bağış bulunamadı."}
           </div>
         ) : (
           <ul className="flex flex-col gap-3">
-            {filteredDonors.map((donor) => (
-              <li
-                key={donor.id}
-                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-colors dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <Link
-                  href={`/bagis/${donor.id}`}
-                  className="flex items-center gap-3 rounded-lg transition-colors active:bg-zinc-50 dark:active:bg-zinc-800"
+            {filteredDonations.map((tx) => (
+              <li key={tx.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTransaction(tx)}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800/60"
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
                     <HeartHandshake size={20} />
                   </span>
 
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2 py-1">
+                  <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                        {donor.name}
+                        {getPartyName(tx, residents)}
                       </p>
-                      <p className="mt-0.5 text-xs text-zinc-400">
-                        {donor.donationCount} bağış
+                      <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-400">
+                        {tx.method === "banka" ? (
+                          <Landmark size={12} />
+                        ) : (
+                          <Banknote size={12} />
+                        )}
+                        İşlem: {formatDate(tx.transactionDate)}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1 text-right">
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                          {formatCurrency(donor.total)}
-                        </p>
-                        <p className="text-xs text-zinc-400">toplam</p>
-                      </div>
-                      <ChevronRight size={18} className="text-zinc-300 dark:text-zinc-600" />
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(tx.amount)}
+                      </p>
                     </div>
                   </div>
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      {selectedTransaction && (
+        <TransactionDetailModal
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
+        />
+      )}
     </div>
   );
 }

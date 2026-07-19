@@ -2,7 +2,12 @@
 
 import { ArrowDownLeft, ArrowUpRight, Banknote, Landmark } from "lucide-react";
 import { useAppData } from "../_lib/AppDataContext";
-import { formatCurrencyValue, formatDate, getPartyName } from "../_lib/calculations";
+import {
+  compareByRecentlyAdded,
+  formatCurrencyValue,
+  formatDate,
+  getPartyName,
+} from "../_lib/calculations";
 import type { Transaction } from "../_lib/types";
 
 interface RecentTransactionsTableProps {
@@ -30,12 +35,8 @@ export default function RecentTransactionsTable({
   transactions,
   onSelectTransaction,
 }: RecentTransactionsTableProps) {
-  const { residents, donors } = useAppData();
-  const recent = [...transactions]
-    .sort(
-      (a, b) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime()
-    )
-    .slice(0, 10);
+  const { residents } = useAppData();
+  const recent = [...transactions].sort(compareByRecentlyAdded).slice(0, 10);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
@@ -66,7 +67,7 @@ export default function RecentTransactionsTable({
                         {tx.description}
                       </p>
                       <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-                        {getPartyName(tx, residents, donors)}
+                        {getPartyName(tx, residents)}
                       </p>
                     </div>
                     <AmountBadge tx={tx} />
@@ -121,7 +122,7 @@ export default function RecentTransactionsTable({
                       {tx.description}
                     </td>
                     <td className="px-6 py-3.5 text-zinc-500 dark:text-zinc-400">
-                      {getPartyName(tx, residents, donors)}
+                      {getPartyName(tx, residents)}
                     </td>
                     <td className="px-6 py-3.5">
                       <span className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400">

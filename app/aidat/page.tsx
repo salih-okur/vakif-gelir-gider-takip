@@ -18,7 +18,9 @@ import Select from "../_components/Select";
 import { useAppData } from "../_lib/AppDataContext";
 import {
   formatCurrency,
+  getPledgedDuesTotalForMonth,
   getRecentMonthOptions,
+  getReceivedDuesTotalForMonth,
   getResidentPaymentStatusInMonth,
   isResidentActiveInMonth,
 } from "../_lib/calculations";
@@ -83,6 +85,19 @@ export default function AidatPage() {
       ? Math.round((statusCounts.paid / activeResidents.length) * 100)
       : 0;
 
+  const pledgedTotal = useMemo(
+    () => getPledgedDuesTotalForMonth(activeResidents, selectedMonth.year, selectedMonth.month),
+    [activeResidents, selectedMonth]
+  );
+  const receivedTotal = useMemo(() => {
+    const activeIds = new Set(activeResidents.map((r) => r.id));
+    return getReceivedDuesTotalForMonth(
+      transactions.filter((tx) => tx.residentId && activeIds.has(tx.residentId)),
+      selectedMonth.year,
+      selectedMonth.month
+    );
+  }, [activeResidents, transactions, selectedMonth]);
+
   const filteredResidents = useMemo(() => {
     return searchedResidents.filter((r) => {
       if (paymentStatus === "hepsi") return true;
@@ -104,19 +119,18 @@ export default function AidatPage() {
     setEditingResident(null);
   }
 
-  function handleSave(data: Omit<Resident, "id" | "createdAt" | "dueHistory">) {
+  async function handleSave(data: Omit<Resident, "id" | "createdAt" | "dueHistory">) {
     if (editingResident) {
-      updateResident(editingResident.id, data);
+      await updateResident(editingResident.id, data);
     } else {
-      addResident(data);
+      await addResident(data);
     }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (editingResident) {
-      removeResident(editingResident.id);
+      await removeResident(editingResident.id);
     }
-    closeModal();
   }
 
   return (
@@ -186,6 +200,12 @@ export default function AidatPage() {
               <span className="font-semibold text-zinc-900 dark:text-zinc-50">
                 %{paidRatio}
               </span>
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                {formatCurrency(receivedTotal)}
+              </span>
+              <span className="text-sm text-zinc-400">/ {formatCurrency(pledgedTotal)}</span>
             </div>
             <div className="mt-2.5 flex h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
               <div

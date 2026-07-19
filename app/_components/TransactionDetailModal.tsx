@@ -33,7 +33,7 @@ export default function TransactionDetailModal({
   transaction,
   onClose,
 }: TransactionDetailModalProps) {
-  const { residents, donors, removeTransaction } = useAppData();
+  const { residents, removeTransaction } = useAppData();
   const { toTRY } = useExchangeRates();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isDeleting, setDeleting] = useState(false);
@@ -45,6 +45,8 @@ export default function TransactionDetailModal({
     try {
       await removeTransaction(transaction.id);
       onClose();
+    } catch {
+      // error toast is shown by the caller; keep the modal open so the user can retry
     } finally {
       setDeleting(false);
     }
@@ -132,7 +134,7 @@ export default function TransactionDetailModal({
           <div className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
             <DetailRow
               label={isIncome ? "Kişi / Bağışçı" : "Gider Kalemi"}
-              value={getPartyName(transaction, residents, donors)}
+              value={getPartyName(transaction, residents)}
             />
             {!isIncome && (
               <DetailRow

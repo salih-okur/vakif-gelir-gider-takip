@@ -9,8 +9,8 @@ import Modal from "./Modal";
 interface ResidentFormModalProps {
   resident?: Resident;
   onClose: () => void;
-  onSave: (data: Omit<Resident, "id" | "createdAt" | "dueHistory">) => void;
-  onDelete?: () => void;
+  onSave: (data: Omit<Resident, "id" | "createdAt" | "dueHistory">) => void | Promise<void>;
+  onDelete?: () => void | Promise<void>;
 }
 
 const FORM_ID = "resident-form";
@@ -22,22 +22,45 @@ export default function ResidentFormModal({
   onDelete,
 }: ResidentFormModalProps) {
   const [name, setName] = useState(resident?.name ?? "");
+  const [phone, setPhone] = useState(resident?.phone ?? "");
   const [monthlyDue, setMonthlyDue] = useState(
     resident ? String(resident.monthlyDue) : ""
   );
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isSaving, setSaving] = useState(false);
 
   const isValid = name.trim() !== "" && parseAmountInput(monthlyDue) > 0;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValid) return;
+    if (!isValid || isSaving) return;
 
-    onSave({
-      name: name.trim(),
-      monthlyDue: parseAmountInput(monthlyDue),
-    });
-    onClose();
+    setSaving(true);
+    try {
+      await onSave({
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        monthlyDue: parseAmountInput(monthlyDue),
+      });
+      onClose();
+    } catch {
+      // error toast is shown by the caller; keep the modal open so the user can retry
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!onDelete) return;
+    setSaving(true);
+    try {
+      await onDelete();
+      onClose();
+    } catch {
+      // error toast is shown by the caller; keep the modal open so the user can retry
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -56,10 +79,11 @@ export default function ResidentFormModal({
             </button>
             <button
               type="button"
-              onClick={onDelete}
-              className="flex min-h-11 items-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-700"
+              onClick={handleConfirmDelete}
+              disabled={isSaving}
+              className="flex min-h-11 items-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Trash2 size={16} /> Evet, Sil
+              <Trash2 size={16} /> {isSaving ? "Siliniyor..." : "Evet, Sil"}
             </button>
           </div>
         ) : (
@@ -86,10 +110,10 @@ export default function ResidentFormModal({
               <button
                 type="submit"
                 form={FORM_ID}
-                disabled={!isValid}
+                disabled={!isValid || isSaving}
                 className="flex min-h-11 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Save size={16} /> Kaydet
+                <Save size={16} /> {isSaving ? "Kaydediliyor..." : "Kaydet"}
               </button>
             </div>
           </div>
@@ -112,6 +136,19 @@ export default function ResidentFormModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Örn: Ahmet Yılmaz"
+              className="min-h-11 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Telefon <span className="text-zinc-400">(opsiyonel)</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="0532 123 45 67"
               className="min-h-11 w-full rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50"
             />
           </div>

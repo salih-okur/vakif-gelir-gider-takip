@@ -49,6 +49,7 @@ export default function ExpenseModal({ onClose, onSave }: ExpenseModalProps) {
         type: "gider",
         transactionDate: date,
         createdAt: getTodayString(),
+        createdAtMs: Date.now(),
         amount: parseAmountInput(amount),
         currency: "TRY",
         method,
@@ -59,6 +60,8 @@ export default function ExpenseModal({ onClose, onSave }: ExpenseModalProps) {
 
       await onSave(newTx);
       onClose();
+    } catch {
+      // error toast is shown by the caller; keep the modal open so the user can retry
     } finally {
       setSaving(false);
     }

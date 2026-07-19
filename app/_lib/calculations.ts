@@ -1,22 +1,14 @@
-import type { Currency, Donor, PaymentMethod, Resident, TimeFilter, Transaction } from "./types";
+import type { Currency, PaymentMethod, Resident, TimeFilter, Transaction } from "./types";
 
 const EXPENSE_CATEGORY_LABELS: Record<NonNullable<Transaction["expenseCategory"]>, string> = {
   sabit: "Sabit Gider",
   ozel: "Özel Gider",
 };
 
-export function getPartyName(
-  tx: Transaction,
-  residents: Resident[],
-  donors: Donor[] = []
-): string {
+export function getPartyName(tx: Transaction, residents: Resident[]): string {
   if (tx.residentId) {
     const resident = residents.find((r) => r.id === tx.residentId);
     return resident?.name ?? "-";
-  }
-  if (tx.donorId) {
-    const donor = donors.find((d) => d.id === tx.donorId);
-    return donor?.name ?? tx.donorName ?? "-";
   }
   if (tx.donorName) {
     return tx.donorName;
@@ -27,6 +19,12 @@ export function getPartyName(
 export function getExpenseCategoryLabel(category?: Transaction["expenseCategory"]): string {
   if (!category) return "-";
   return EXPENSE_CATEGORY_LABELS[category];
+}
+
+export function compareByRecentlyAdded(a: Transaction, b: Transaction): number {
+  const createdAtCompare = b.createdAt.localeCompare(a.createdAt);
+  if (createdAtCompare !== 0) return createdAtCompare;
+  return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
 }
 
 export function getToday(): Date {
@@ -162,6 +160,16 @@ export function formatDate(dateStr: string): string {
   }).format(new Date(dateStr));
 }
 
+export function getWhatsappLink(phone: string, message: string): string {
+  const digitsOnly = phone.replace(/\D/g, "");
+  const withCountryCode = digitsOnly.startsWith("90")
+    ? digitsOnly
+    : digitsOnly.startsWith("0")
+      ? `90${digitsOnly.slice(1)}`
+      : `90${digitsOnly}`;
+  return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(message)}`;
+}
+
 const MONTH_NAMES_TR = [
   "Ocak",
   "Şubat",
@@ -234,29 +242,6 @@ export function getResidentReceivedTotal(
     .reduce((sum, tx) => sum + tx.amount, 0);
 }
 
-export function getDonorTransactions(
-  transactions: Transaction[],
-  donorId: string
-): Transaction[] {
-  return transactions
-    .filter((tx) => tx.type === "gelir" && tx.incomeCategory === "bagis" && tx.donorId === donorId)
-    .sort((a, b) => b.transactionDate.localeCompare(a.transactionDate));
-}
-
-export function getDonorsWithTotals(
-  donors: Donor[],
-  transactions: Transaction[]
-): (Donor & { total: number; donationCount: number })[] {
-  return donors.map((donor) => {
-    const donorTxs = getDonorTransactions(transactions, donor.id);
-    return {
-      ...donor,
-      total: donorTxs.reduce((sum, tx) => sum + tx.amount, 0),
-      donationCount: donorTxs.length,
-    };
-  });
-}
-
 export interface MonthOption {
   year: number;
   month: number; // 0-11
@@ -312,6 +297,30 @@ export function getResidentPaymentStatusInMonth(
 
   const dueAmount = getResidentDueAmountForMonth(resident, year, month);
   return paidAmount >= dueAmount ? "odedi" : "kismi";
+}
+
+export function getPledgedDuesTotalForMonth(
+  residents: Resident[],
+  year: number,
+  month: number
+): number {
+  return residents
+    .filter((r) => isResidentActiveInMonth(r, year, month))
+    .reduce((sum, r) => sum + getResidentDueAmountForMonth(r, year, month), 0);
+}
+
+export function getReceivedDuesTotalForMonth(
+  transactions: Transaction[],
+  year: number,
+  month: number
+): number {
+  return transactions
+    .filter((tx) => {
+      if (tx.type !== "gelir" || tx.incomeCategory !== "aidat") return false;
+      const txDate = parseDateOnly(tx.transactionDate);
+      return txDate.year === year && txDate.month === month;
+    })
+    .reduce((sum, tx) => sum + tx.amount, 0);
 }
 
 export function isResidentActiveInMonth(resident: Resident, year: number, month: number): boolean {

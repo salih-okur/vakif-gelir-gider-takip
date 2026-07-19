@@ -27,7 +27,7 @@ const CURRENCY_OPTIONS: { value: Currency; label: string }[] = [
 ];
 
 export default function IncomeModal({ onClose, onSave }: IncomeModalProps) {
-  const { residents, findOrCreateDonorByName } = useAppData();
+  const { residents } = useAppData();
   const [category, setCategory] = useState<IncomeCategory>("aidat");
   const [residentId, setResidentId] = useState(residents[0]?.id ?? "");
   const [donorName, setDonorName] = useState("");
@@ -72,27 +72,24 @@ export default function IncomeModal({ onClose, onSave }: IncomeModalProps) {
             ? `Aidat ödemesi - ${resident?.name ?? ""}`
             : `Bağış - ${donorName || "İsimsiz"}`;
 
-      const donorId =
-        category === "bagis" && donorName.trim() !== ""
-          ? await findOrCreateDonorByName(donorName)
-          : undefined;
-
       const newTx: Omit<Transaction, "id"> = {
         type: "gelir",
         transactionDate: date,
         createdAt: getTodayString(),
+        createdAtMs: Date.now(),
         amount: parseAmountInput(amount),
         currency: showCurrencyPicker ? currency : "TRY",
         method,
         description: autoDescription,
         incomeCategory: category,
         residentId: category === "aidat" ? residentId : undefined,
-        donorId,
         donorName: category === "bagis" ? donorName : undefined,
       };
 
       await onSave(newTx);
       onClose();
+    } catch {
+      // error toast is shown by the caller; keep the modal open so the user can retry
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowLeft, Banknote, CheckCircle2, Landmark, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  CheckCircle2,
+  Landmark,
+  MessageCircle,
+  Phone,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -13,6 +21,7 @@ import {
   getResidentMonthlyHistory,
   getResidentPledgedTotal,
   getResidentReceivedTotal,
+  getWhatsappLink,
 } from "../../_lib/calculations";
 import type { TimeFilter } from "../../_lib/types";
 
@@ -74,6 +83,12 @@ export default function ResidentDetailPage() {
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             Aylık taahhüt {formatCurrency(resident.monthlyDue)}
           </p>
+          {resident.phone && (
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+              <Phone size={14} />
+              {resident.phone}
+            </p>
+          )}
         </div>
 
         <TimeFilterTabs value={filter} onChange={setFilter} options={["6ay", "1yil"]} />
@@ -145,15 +160,31 @@ export default function ResidentDetailPage() {
                     )}
                   </div>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    entry.paid
-                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
-                      : "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
-                  }`}
-                >
-                  {entry.paid ? `${formatCurrency(entry.amount)} Ödendi` : "Ödenmedi"}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {!entry.paid && resident.phone && (
+                    <a
+                      href={getWhatsappLink(
+                        resident.phone,
+                        `${entry.label} ayı aidatınız ödenmemiş bulunmaktadır.`
+                      )}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`${entry.label} ayı için ${resident.name} kişisine WhatsApp'tan hatırlatma gönder`}
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 transition-colors hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-400 dark:hover:bg-emerald-900"
+                    >
+                      <MessageCircle size={16} />
+                    </a>
+                  )}
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      entry.paid
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400"
+                        : "bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400"
+                    }`}
+                  >
+                    {entry.paid ? `${formatCurrency(entry.amount)} Ödendi` : "Ödenmedi"}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
